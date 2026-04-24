@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@theme {
+    /* প্রিমিয়াম সিলিকন ভ্যালি থিম সেটআপ */
+    --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
+    --color-primary: #2563eb;
+    --color-slate-950: #020617;
+
+    --shadow-premium: 0 20px 50px -12px rgba(0, 0, 0, 0.05);
+}
+
+@layer base {
+    body {
+        @apply bg-[#F8FAFC] text-slate-900 antialiased;
+    }
+}
+
+/* স্লিক স্ক্রলবার */
+::-webkit-scrollbar {
+    width: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
