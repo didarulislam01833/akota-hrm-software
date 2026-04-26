@@ -24,7 +24,7 @@ const Register = () => {
 
         try {
             // আপনার লোকালহোস্টের সঠিক পোর্ট (5000) নিশ্চিত করুন
-            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+            const res = await axios.post('https://akota-hrm-server.onrender.com/api/auth/register', formData);
             if (res.data) {
                 setSuccess(true);
                 setTimeout(() => navigate('/login'), 2000); // ২ সেকেন্ড পর লগইন পেজে নিয়ে যাবে
