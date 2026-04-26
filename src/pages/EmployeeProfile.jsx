@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import API from '../api'; // আমাদের কাস্টম API ইম্পোর্ট করলাম
 import {
-    FaUserCircle, FaPhoneAlt, FaEnvelope, FaIdCard,
-    FaMapMarkerAlt, FaBriefcase, FaBuilding, FaMoneyBillWave,
-    FaArrowLeft, FaSpinner, FaDownload, FaExternalLinkAlt,
-    FaExclamationTriangle, FaCalendarAlt, FaShieldAlt
+    FaUserCircle, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaBuilding,
+    FaMoneyBillWave, FaArrowLeft, FaSpinner, FaDownload, FaExternalLinkAlt,
+    FaExclamationTriangle, FaShieldAlt
 } from 'react-icons/fa';
 
 const EmployeeProfile = () => {
@@ -19,10 +18,8 @@ const EmployeeProfile = () => {
         const fetchEmployeeProfile = async () => {
             try {
                 setLoading(true);
-                const token = localStorage.getItem('token')?.replace(/['"]+/g, '');
-                const res = await axios.get(`http://localhost:5000/api/employees/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                // এখন আর headers বা localhost দিতে হবে না
+                const res = await API.get(`/api/employees/${id}`);
                 setEmployee(res.data);
                 setError(null);
             } catch (err) {
@@ -35,7 +32,12 @@ const EmployeeProfile = () => {
         if (id) fetchEmployeeProfile();
     }, [id]);
 
-    const getImagePath = (path) => path ? `http://localhost:5000/${path.replace(/\\/g, '/')}` : null;
+    // ইমেজ পাথের জন্য ডাইনামিক ফাংশন
+    const getImagePath = (path) => {
+        if (!path) return null;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        return `${baseUrl}/${path.replace(/\\/g, '/')}`;
+    };
 
     if (loading) return (
         <div className="h-screen flex flex-col items-center justify-center bg-[#F8F9FD]">
@@ -57,7 +59,6 @@ const EmployeeProfile = () => {
 
     return (
         <div className="min-h-screen bg-[#F8F9FD] pb-20 font-sans">
-            {/* Upper Navigation Bar */}
             <div className="max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
                 <button
                     onClick={() => navigate(-1)}
@@ -71,15 +72,11 @@ const EmployeeProfile = () => {
             </div>
 
             <div className="max-w-5xl mx-auto px-4">
-                {/* --- Classical Hero Banner --- */}
                 <div className="relative bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-visible mb-10">
-
-                    {/* Dark Executive Header */}
                     <div className="h-48 bg-[#2B3674] rounded-t-[3rem] relative overflow-hidden">
                         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
                     </div>
 
-                    {/* Profile Section with Central Alignment */}
                     <div className="flex flex-col items-center -mt-24 pb-12 px-6">
                         <div className="relative">
                             <div className="w-44 h-44 rounded-full bg-white p-2 shadow-2xl">
@@ -113,10 +110,7 @@ const EmployeeProfile = () => {
                     </div>
                 </div>
 
-                {/* --- Detailed Content Section --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-                    {/* Left Sidebar: Fast Facts */}
                     <div className="lg:col-span-4 space-y-6">
                         <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
                             <h3 className="text-[10px] font-black text-[#A3AED0] uppercase tracking-[3px] mb-8 flex items-center gap-2">
@@ -138,10 +132,7 @@ const EmployeeProfile = () => {
                         </div>
                     </div>
 
-                    {/* Right Main Body: Communication & Finance */}
                     <div className="lg:col-span-8 space-y-6">
-
-                        {/* Location & Contact */}
                         <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-8 opacity-5">
                                 <FaPhoneAlt size={80} />
@@ -154,7 +145,6 @@ const EmployeeProfile = () => {
                             </div>
                         </div>
 
-                        {/* Professional & Payroll */}
                         <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
                             <h3 className="text-[11px] font-black text-indigo-600 uppercase tracking-[4px] mb-8">Departmental Data</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -162,7 +152,6 @@ const EmployeeProfile = () => {
                                 <InfoBlock icon={<FaMoneyBillWave />} label="Monthly Remuneration" value={employee?.salary ? `${employee.salary} BDT` : "Negotiable"} />
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -170,7 +159,7 @@ const EmployeeProfile = () => {
     );
 };
 
-// --- Atomic Components for Efficiency ---
+// --- হেল্পার কম্পোনেন্ট ---
 
 const ProfileDetail = ({ label, value }) => (
     <div className="border-l-2 border-slate-50 pl-4">
@@ -192,7 +181,7 @@ const InfoBlock = ({ icon, label, value, isFull }) => (
 );
 
 const DocButton = ({ icon, label, link, color }) => {
-    if (!link || link.includes('null')) return null;
+    if (!link || link.endsWith('null') || link.endsWith('undefined')) return null;
     return (
         <a
             href={link} target="_blank" rel="noreferrer"

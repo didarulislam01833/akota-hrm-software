@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import axios from 'axios';
+import API from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -19,7 +19,7 @@ const Login = () => {
         setError('');
 
         try {
-            const res = await axios.post('https://akota-hrm-server.onrender.com/api/auth/login', formData);
+            const res = await API.post('/api/auth/login', formData);
             if (res.data.token) {
                 // --- গুরুত্বপূর্ণ পরিবর্তন এখানে ---
                 // ডাটাবেস থেকে আসা ইউজার অবজেক্ট এবং টোকেন লোকাল স্টোরেজে সেভ করছি

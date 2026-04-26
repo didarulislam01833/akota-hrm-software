@@ -14,25 +14,40 @@ const Attendance = () => {
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const API_URL = 'http://localhost:5000';
+    // --- ডাইনামিক ইউআরএল সেটআপ ---
+    const API_URL = import.meta.env.VITE_API_BASE_URL;
 
     const fetchAttendanceData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token')?.replace(/"/g, '');
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+
+            // টোকেন ক্লিন করার প্রফেশনাল পদ্ধতি
+            const token = localStorage.getItem('token');
+            const cleanToken = token ? token.replace(/['"]+/g, '').trim() : '';
+
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${cleanToken}`,
+                    'Content-Type': 'application/json'
+                }
+            };
 
             const [empRes, attRes] = await Promise.all([
                 axios.get(`${API_URL}/api/employees`, config),
                 axios.get(`${API_URL}/api/attendance/all`, config)
             ]);
 
-            setEmployees(empRes.data || []);
-            setAttendanceRecords(attRes.data || []);
-            console.log("Employees Loaded:", empRes.data.length);
-            console.log("Records Loaded:", attRes.data.length);
+            // ডাটা চেক করে সেট করা
+            const empData = empRes.data.data || empRes.data;
+            const attData = attRes.data.data || attRes.data;
+
+            setEmployees(Array.isArray(empData) ? empData : []);
+            setAttendanceRecords(Array.isArray(attData) ? attData : []);
+
+            console.log("Employees Loaded:", empData.length);
+            console.log("Records Loaded:", attData.length);
         } catch (err) {
-            console.error("Fetch Error:", err);
+            console.error("🔥 Fetch Error:", err.message);
         } finally {
             setLoading(false);
         }

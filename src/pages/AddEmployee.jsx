@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import API from '../api'; // আমাদের কাস্টম API ইম্পোর্ট করলাম
 import {
     FaUser, FaPhone, FaIdCard, FaCamera, FaArrowLeft,
     FaCloudUploadAlt, FaFilePdf, FaBuilding, FaEnvelope, FaMoneyBillWave
@@ -21,16 +21,12 @@ const AddEmployee = () => {
         department: '', nidNumber: '', presentAddress: '', salary: 0
     });
 
-    const getToken = () => localStorage.getItem('token');
-
     useEffect(() => {
         if (id) {
             const fetchEmployee = async () => {
                 try {
-                    const token = getToken();
-                    const res = await axios.get(`http://localhost:5000/api/employees/${id}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
+                    // টোকেন আলাদা করে দেওয়া লাগবে না, API ফাইল থেকে অটো যাবে
+                    const res = await API.get(`/api/employees/${id}`);
                     setFormData(res.data);
                 } catch (err) {
                     console.error("Fetch Error:", err);
@@ -53,8 +49,6 @@ const AddEmployee = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        const token = getToken();
-        if (!token) { navigate('/login'); return; }
 
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
@@ -63,13 +57,18 @@ const AddEmployee = () => {
         if (cvFile) data.append('cvFile', cvFile);
 
         try {
-            const url = id ? `http://localhost:5000/api/employees/update/${id}` : 'http://localhost:5000/api/employees/add';
-            await axios({
+            // লিঙ্ক ছোট হয়ে গেল এবং localhost বিদায় নিল
+            const url = id ? `/api/employees/update/${id}` : '/api/employees/add';
+
+            await API({
                 method: id ? 'put' : 'post',
-                url, data,
-                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
+                url,
+                data,
+                headers: { 'Content-Type': 'multipart/form-data' }
+                // Authorization হেডার আর লাগবে না, api.js ওটা হ্যান্ডেল করছে
             });
-            alert("Success!");
+
+            alert(id ? "Updated Successfully!" : "Employee Added Successfully!");
             navigate('/employees');
         } catch (err) {
             alert(err.response?.data?.message || "Error occurred");
@@ -79,8 +78,8 @@ const AddEmployee = () => {
     };
 
     return (
-        <div className="max-w-3xl mx-auto py-6 px-4 animate-in fade-in duration-500">
-            {/* Header - More Compact */}
+        <div className="max-w-3xl mx-auto py-6 px-4 animate-in fade-in duration-500 text-left">
+            {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h2 className="text-xl font-bold text-[#2B3674]">
@@ -97,8 +96,7 @@ const AddEmployee = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-
-                {/* Profile Image - Smaller size */}
+                {/* Profile Image */}
                 <div className="flex flex-col items-center">
                     <div className="relative">
                         <div className="w-24 h-24 rounded-2xl bg-[#F4F7FE] border-2 border-white shadow-md overflow-hidden flex items-center justify-center">
@@ -115,11 +113,9 @@ const AddEmployee = () => {
                     </div>
                 </div>
 
-                {/* Form Card - Reduced Padding */}
+                {/* Form Card */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-50">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                        {/* Compact Input Style */}
                         {[
                             { label: "Full Name", icon: FaUser, key: "name", type: "text", placeholder: "Didarul Islam" },
                             { label: "Email Address", icon: FaEnvelope, key: "email", type: "email", placeholder: "didar@example.com" },
@@ -143,7 +139,6 @@ const AddEmployee = () => {
                             </div>
                         ))}
 
-                        {/* Department Dropdown */}
                         <div className="space-y-1.5">
                             <label className="text-[11px] font-bold text-[#2B3674] ml-1 uppercase tracking-tight">Department</label>
                             <div className="relative">
@@ -163,7 +158,6 @@ const AddEmployee = () => {
                             </div>
                         </div>
 
-                        {/* Designation */}
                         <div className="space-y-1.5">
                             <label className="text-[11px] font-bold text-[#2B3674] ml-1 uppercase tracking-tight">Designation</label>
                             <input
@@ -176,7 +170,6 @@ const AddEmployee = () => {
                             />
                         </div>
 
-                        {/* Address - Full Width */}
                         <div className="space-y-1.5 md:col-span-2">
                             <label className="text-[11px] font-bold text-[#2B3674] ml-1 uppercase tracking-tight">Present Address</label>
                             <input
@@ -190,13 +183,13 @@ const AddEmployee = () => {
                         </div>
                     </div>
 
-                    {/* File Uploads - Grid layout simplified */}
+                    {/* File Uploads */}
                     <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-50">
                         <label className="cursor-pointer group">
                             <div className="p-3 border border-dashed border-indigo-100 rounded-xl bg-[#F8FAFF] hover:border-indigo-400 transition-all text-center">
                                 <FaCloudUploadAlt className="text-indigo-500 mx-auto mb-1 text-base" />
                                 <span className="text-[10px] font-bold text-[#707EAE] uppercase block">NID Copy</span>
-                                <input type="file" className="hidden" onChange={(e) => setNidFile(e.target.files[0])} required={!id} />
+                                <input type="file" className="hidden" onChange={(e) => setNidFile(e.target.files[0])} />
                                 {nidFile && <p className="text-[9px] text-emerald-500 truncate mt-1">{nidFile.name}</p>}
                             </div>
                         </label>
@@ -205,14 +198,13 @@ const AddEmployee = () => {
                             <div className="p-3 border border-dashed border-red-50 rounded-xl bg-[#FFF8F8] hover:border-red-300 transition-all text-center">
                                 <FaFilePdf className="text-red-400 mx-auto mb-1 text-base" />
                                 <span className="text-[10px] font-bold text-[#707EAE] uppercase block">Resume (PDF)</span>
-                                <input type="file" className="hidden" accept=".pdf" onChange={(e) => setCvFile(e.target.files[0])} required={!id} />
+                                <input type="file" className="hidden" accept=".pdf" onChange={(e) => setCvFile(e.target.files[0])} />
                                 {cvFile && <p className="text-[9px] text-emerald-500 truncate mt-1">{cvFile.name}</p>}
                             </div>
                         </label>
                     </div>
                 </div>
 
-                {/* Submit Button - More balanced */}
                 <button
                     type="submit"
                     disabled={loading}

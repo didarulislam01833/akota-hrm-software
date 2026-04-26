@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import API from '../api'; // আমাদের কাস্টম API ইম্পোর্ট করলাম
 import { FaPaperPlane, FaClock, FaCheckCircle, FaTimesCircle, FaCalendarAlt } from 'react-icons/fa';
 
 const LeaveApply = () => {
     const user = JSON.parse(localStorage.getItem('user')) || {};
     const userId = user._id;
-    // টোকেনটি লোকাল স্টোরেজ থেকে সংগ্রহ করা হচ্ছে
-    const token = localStorage.getItem('token');
 
     const [formData, setFormData] = useState({
         employeeId: userId,
@@ -22,14 +20,10 @@ const LeaveApply = () => {
 
     // ১. এমপ্লয়ির নিজস্ব ছুটির হিস্ট্রি ফেচ করা
     const fetchMyLeaves = async () => {
-        if (!userId || !token) return;
+        if (!userId) return;
         try {
-            // রিকোয়েস্টের সাথে Authorization হেডার পাঠানো হচ্ছে
-            const res = await axios.get(`http://localhost:5000/api/leaves/my-leaves/${userId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+            // baseURL বা headers দেওয়ার আর প্রয়োজন নেই
+            const res = await API.get(`/api/leaves/my-leaves/${userId}`);
             setMyLeaves(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error("Failed to fetch leave history", err);
@@ -43,28 +37,33 @@ const LeaveApply = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!userId || !token) {
+        if (!userId) {
             setStatus({ type: 'error', msg: "Authentication error! Please login again." });
             return;
         }
 
         setLoading(true);
         try {
-            // ডাটা সাবমিট করার সময়ও Authorization হেডার পাঠানো হচ্ছে
-            const res = await axios.post('http://localhost:5000/api/leaves/apply',
-                { ...formData, employeeId: userId },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
+            // ডাটা সাবমিট করার সময় API wrapper অটোমেটিক টোকেন ম্যানেজ করবে
+            const res = await API.post('/api/leaves/apply', {
+                ...formData,
+                employeeId: userId
+            });
 
             setStatus({ type: 'success', msg: res.data.message });
-            setFormData({ employeeId: userId, leaveType: 'Sick Leave', startDate: '', endDate: '', reason: '' });
+            setFormData({
+                employeeId: userId,
+                leaveType: 'Sick Leave',
+                startDate: '',
+                endDate: '',
+                reason: ''
+            });
             fetchMyLeaves();
         } catch (err) {
-            setStatus({ type: 'error', msg: err.response?.data?.message || "Failed to submit application" });
+            setStatus({
+                type: 'error',
+                msg: err.response?.data?.message || "Failed to submit application"
+            });
         } finally {
             setLoading(false);
             setTimeout(() => setStatus({ type: '', msg: '' }), 5000);

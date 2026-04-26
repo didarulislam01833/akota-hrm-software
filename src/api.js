@@ -1,15 +1,15 @@
 import axios from 'axios';
 
 const API = axios.create({
-    // এখানে আপনার Render-এর লিঙ্কটি থাকবে
-    baseURL: 'https://akota-hrm-server.onrender.com/api',
+    // এটি অটোমেটিক আপনার .env থেকে লিঙ্কটি নিয়ে নেবে
+    baseURL: import.meta.env.VITE_API_BASE_URL
 });
 
-// এই অংশটি অটোমেটিক টোকেন পাঠাতে সাহায্য করবে
+// এই অংশটি থাকলে আপনাকে আর কষ্ট করে প্রতি ফাইলে 'Bearer token' লিখতে হবে না
 API.interceptors.request.use((req) => {
     const token = localStorage.getItem('token');
     if (token) {
-        req.headers.Authorization = `Bearer ${token.replace(/"/g, '')}`;
+        req.headers.Authorization = `Bearer ${token}`;
     }
     return req;
 });

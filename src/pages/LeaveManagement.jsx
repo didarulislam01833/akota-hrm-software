@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import API from '../api'; // কাস্টম API ইম্পোর্ট
 import {
-    FaCheckCircle, FaTimesCircle, FaClock, FaUserAlt,
-    FaCalendarAlt, FaSearch, FaFilter, FaLayerGroup
+    FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt,
+    FaSearch, FaFilter, FaLayerGroup
 } from 'react-icons/fa';
 
 const LeaveManagement = () => {
     const [leaves, setLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
-
-    const token = localStorage.getItem('token');
-    const config = { headers: { Authorization: `Bearer ${token}` } };
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         fetchLeaves();
@@ -19,26 +17,36 @@ const LeaveManagement = () => {
 
     const fetchLeaves = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/leaves/all', config);
+            // টোকেন বা বেস ইউআরএল অটোমেটিক হ্যান্ডেল হবে
+            const res = await API.get('/api/leaves/all');
             setLeaves(res.data);
-            setLoading(false);
         } catch (err) {
             console.error("Failed to fetch leaves", err);
+        } finally {
             setLoading(false);
         }
     };
 
     const handleStatusUpdate = async (id, newStatus) => {
+        if (!window.confirm(`Are you sure you want to set this to ${newStatus}?`)) return;
+
         setActionLoading(id);
         try {
-            await axios.put(`http://localhost:5000/api/leaves/update/${id}`, { status: newStatus }, config);
+            await API.put(`/api/leaves/update/${id}`, { status: newStatus });
+            // লোকাল স্টেট আপডেট করে ইউজারকে ইনস্ট্যান্ট ফিডব্যাক দেওয়া
             setLeaves(leaves.map(leave => leave._id === id ? { ...leave, status: newStatus } : leave));
         } catch (err) {
-            alert("Action failed: " + err.message);
+            alert("Action failed: " + (err.response?.data?.message || err.message));
         } finally {
             setActionLoading(null);
         }
     };
+
+    // সার্চ ফিল্টারিং লজিক
+    const filteredLeaves = leaves.filter(leave =>
+        leave.employee?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        leave.employee?.employeeId?.includes(searchTerm)
+    );
 
     if (loading) return (
         <div className="h-screen flex flex-col items-center justify-center bg-[#F8F9FD]">
@@ -62,7 +70,6 @@ const LeaveManagement = () => {
                         </p>
                     </div>
 
-                    {/* Stats Overview */}
                     <div className="flex gap-4">
                         <StatCard label="Pending" count={leaves.filter(l => l.status === 'Pending').length} color="amber" />
                         <StatCard label="Total" count={leaves.length} color="indigo" />
@@ -72,11 +79,16 @@ const LeaveManagement = () => {
                 {/* Table Container */}
                 <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
 
-                    {/* Table Filters (Optional Look) */}
                     <div className="px-8 py-6 border-b border-slate-50 flex flex-wrap items-center justify-between gap-4 bg-slate-50/30">
                         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-slate-100 w-full md:w-80 shadow-sm">
                             <FaSearch className="text-[#A3AED0] text-xs" />
-                            <input type="text" placeholder="Search employee..." className="bg-transparent border-none outline-none text-xs font-bold text-[#2B3674] w-full" />
+                            <input
+                                type="text"
+                                placeholder="Search employee name or ID..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-transparent border-none outline-none text-xs font-bold text-[#2B3674] w-full"
+                            />
                         </div>
                         <div className="flex items-center gap-2">
                             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-xl text-[10px] font-black text-[#2B3674] uppercase tracking-widest hover:bg-slate-50 transition-all">
@@ -98,15 +110,15 @@ const LeaveManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {leaves.map((leave) => (
+                                {filteredLeaves.map((leave) => (
                                     <tr key={leave._id} className="hover:bg-[#F4F7FE]/50 transition-all group">
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs border border-indigo-100 group-hover:scale-105 transition-transform shadow-sm">
-                                                    {leave.employee?.name?.substring(0, 2).toUpperCase() || '??'}
+                                                <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xs border border-indigo-100 group-hover:scale-105 transition-transform shadow-sm uppercase">
+                                                    {leave.employee?.name?.substring(0, 2) || '??'}
                                                 </div>
                                                 <div>
-                                                    <div className="font-black text-[#2B3674] text-sm tracking-tight uppercase leading-none mb-1.5">{leave.employee?.name}</div>
+                                                    <div className="font-black text-[#2B3674] text-sm tracking-tight uppercase leading-none mb-1.5">{leave.employee?.name || 'Unknown User'}</div>
                                                     <div className="text-[10px] font-bold text-[#A3AED0] uppercase tracking-widest leading-none">ID: {leave.employee?.employeeId || 'N/A'}</div>
                                                 </div>
                                             </div>
@@ -143,15 +155,15 @@ const LeaveManagement = () => {
                                                         disabled={actionLoading === leave._id}
                                                         onClick={() => handleStatusUpdate(leave._id, 'Approved')}
                                                         className="p-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/20 active:scale-90 disabled:opacity-50"
-                                                        title="Approve"
+                                                        title="Approve Request"
                                                     >
-                                                        <FaCheckCircle size={14} />
+                                                        {actionLoading === leave._id ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <FaCheckCircle size={14} />}
                                                     </button>
                                                     <button
                                                         disabled={actionLoading === leave._id}
                                                         onClick={() => handleStatusUpdate(leave._id, 'Rejected')}
                                                         className="p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/20 active:scale-90 disabled:opacity-50"
-                                                        title="Reject"
+                                                        title="Reject Request"
                                                     >
                                                         <FaTimesCircle size={14} />
                                                     </button>
@@ -166,7 +178,7 @@ const LeaveManagement = () => {
                         </table>
                     </div>
 
-                    {leaves.length === 0 && (
+                    {filteredLeaves.length === 0 && (
                         <div className="py-32 text-center">
                             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <FaClock className="text-slate-200" size={24} />

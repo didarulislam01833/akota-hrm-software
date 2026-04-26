@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'; // useCallback যোগ করা হয়েছে
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import API from '../api';
 import {
     FaUserPlus, FaSearch, FaPhoneAlt, FaTrash,
     FaUserCircle, FaBuilding, FaSpinner, FaChevronRight
@@ -12,29 +12,18 @@ const EmployeeList = () => {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
 
-    // ১. অথরাইজেশন হেডার পাওয়ার ফাংশন (দিদারুল ভাই, এটাই মিসিং ছিল)
-    const getAuthHeaders = useCallback(() => {
-        let token = localStorage.getItem('token');
-        if (token) {
-            token = token.replace(/['"]+/g, '').trim(); // কোটেশন ক্লিয়ার করা
-        }
-        return {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        };
-    }, []);
-
+    // ১. ডাটা ফেচ করার ফাংশন
     const fetchEmployees = async () => {
         try {
             setLoading(true);
-            const config = getAuthHeaders(); // হেডার কনফিগ নেওয়া হলো
-            const res = await axios.get('http://localhost:5000/api/employees', config);
-            setEmployees(Array.isArray(res.data) ? res.data : []);
+            // আমরা কাস্টম API ইনস্ট্যান্স ব্যবহার করছি যা headers অটো হ্যান্ডেল করে
+            const res = await API.get('/api/employees');
+
+            // ডাটা চেক করে স্টেট সেট করা
+            const data = res.data.data || res.data;
+            setEmployees(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error("Data Loading Error:", err.response?.status, err.response?.data);
-            // যদি টোকেন ইনভ্যালিড হয় তবেই রিডাইরেক্ট করবে
+            console.error("🔥 Data Loading Error:", err.response?.status);
             if (err.response?.status === 401) {
                 navigate('/login');
             }
@@ -47,12 +36,12 @@ const EmployeeList = () => {
         fetchEmployees();
     }, []);
 
+    // ২. এমপ্লয়ি ডিলিট করার ফাংশন
     const deleteEmployee = async (id) => {
         if (window.confirm("আপনি কি নিশ্চিত যে এই এমপ্লয়িকে ডিলিট করতে চান?")) {
             try {
-                const config = getAuthHeaders();
-                await axios.delete(`http://localhost:5000/api/employees/${id}`, config);
-                setEmployees(employees.filter(emp => emp._id !== id));
+                await API.delete(`/api/employees/${id}`);
+                setEmployees(prev => prev.filter(emp => emp._id !== id));
             } catch (err) {
                 alert("Failed to delete employee!");
             }
@@ -108,29 +97,35 @@ const EmployeeList = () => {
                     {filteredEmployees.map((emp) => (
                         <div key={emp._id} className="bg-white border border-slate-50 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
                             <div className="flex items-center gap-4 mb-4 text-left">
-                                <div className="w-14 h-14 rounded-xl bg-[#F4F7FE] overflow-hidden border border-slate-100 shadow-sm">
+                                <div className="w-14 h-14 rounded-xl bg-[#F4F7FE] overflow-hidden border border-slate-100 shadow-sm flex items-center justify-center">
                                     {emp.profilePicPath ? (
                                         <img
-                                            src={`http://localhost:5000/${emp.profilePicPath.replace(/\\/g, '/')}`}
+                                            // ইমেজ ইউআরএল ক্লিন করার নিরাপদ পদ্ধতি
+                                            src={`${import.meta.env.VITE_API_BASE_URL}/${emp.profilePicPath.replace(/\\/g, '/')}`}
                                             className="w-full h-full object-cover"
                                             alt={emp.name}
+                                            onError={(e) => {
+                                                e.target.src = 'https://via.placeholder.com/150?text=No+Image'; // ইমেজ না পেলে ফলব্যাক
+                                            }}
                                         />
-                                    ) : <FaUserCircle className="w-full h-full text-[#A3AED0]" />}
+                                    ) : (
+                                        <FaUserCircle className="w-full h-full text-[#A3AED0]" />
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-bold text-[#2B3674] truncate text-sm">{emp.name}</h4>
                                     <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded-md mt-1">
-                                        {emp.designation}
+                                        {emp.designation || 'Staff'}
                                     </span>
                                 </div>
                             </div>
 
                             <div className="space-y-2 mb-5">
                                 <div className="flex items-center gap-2.5 text-xs text-[#707EAE] font-semibold">
-                                    <FaPhoneAlt className="text-[#A3AED0]" size={10} /> {emp.phone}
+                                    <FaPhoneAlt className="text-[#A3AED0]" size={10} /> {emp.phone || 'N/A'}
                                 </div>
                                 <div className="flex items-center gap-2.5 text-xs text-[#707EAE] font-semibold">
-                                    <FaBuilding className="text-[#A3AED0]" size={10} /> {emp.department}
+                                    <FaBuilding className="text-[#A3AED0]" size={10} /> {emp.department || 'General'}
                                 </div>
                             </div>
 
@@ -153,7 +148,7 @@ const EmployeeList = () => {
 
                     {!loading && filteredEmployees.length === 0 && (
                         <div className="col-span-full text-center py-12">
-                            <p className="text-sm font-bold text-[#A3AED0]">No employees found matches your search.</p>
+                            <p className="text-sm font-bold text-[#A3AED0]">No employees found matching your search.</p>
                         </div>
                     )}
                 </div>

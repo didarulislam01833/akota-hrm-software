@@ -19,12 +19,14 @@ const Dashboard = () => {
     });
     const [taskStats, setTaskStats] = useState([]);
 
-    const API_BASE_URL = 'http://localhost:5000/api';
+    // --- ডাইনামিক ইউআরএল সেটআপ ---
+    const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const getAuthHeaders = useCallback(() => {
         let token = localStorage.getItem('token');
         if (token) {
-            token = token.replace(/['"]+/g, '');
+            // টোকেন থেকে কোটেশন মার্ক ক্লিন করার নিরাপদ পদ্ধতি
+            token = token.replace(/['"]+/g, '').trim();
         }
         return {
             headers: {
@@ -41,6 +43,7 @@ const Dashboard = () => {
 
             try {
                 const config = getAuthHeaders();
+                // Promise.all ব্যবহার করে দ্রুত ডাটা ফেচ করা হচ্ছে
                 const [attendanceRes, taskRes] = await Promise.all([
                     axios.get(`${API_BASE_URL}/attendance/today-stats`, config),
                     axios.get(`${API_BASE_URL}/tasks/stats`, config)
@@ -55,10 +58,13 @@ const Dashboard = () => {
                         payroll: attendanceRes.data.payroll || '৳0'
                     });
                 }
-                setTaskStats(taskRes.data || []);
+
+                // টাস্ক ডাটা চেক করে সেট করা
+                const taskData = taskRes.data.data || taskRes.data;
+                setTaskStats(Array.isArray(taskData) ? taskData : []);
 
             } catch (err) {
-                console.error("Dashboard Fetch Error:", err.response?.status, err.response?.data);
+                console.error("🔥 Dashboard Fetch Error:", err.response?.status, err.response?.data);
                 if (err.response?.status === 401) {
                     if (logout) logout();
                 }
@@ -66,13 +72,14 @@ const Dashboard = () => {
         };
 
         fetchDashboardData();
-    }, [getAuthHeaders, logout]);
+    }, [getAuthHeaders, logout, API_BASE_URL]);
 
     const handleCheckIn = () => {
         if (!navigator.geolocation) {
             alert("আপনার ব্রাউজার জিপিএস সাপোর্ট করে না।");
             return;
         }
+
         const targetId = user?._id || user?.id;
         if (!targetId) {
             alert("ইউজার আইডি পাওয়া যায়নি। লগইন করুন।");
@@ -92,19 +99,21 @@ const Dashboard = () => {
                     deviceType: window.innerWidth < 768 ? 'Mobile' : 'Desktop'
                 }, config);
 
-                if (res.data.success) {
+                if (res.data.success || res.data) {
                     alert("✅ হাজিরা সফলভাবে সম্পন্ন হয়েছে!");
                     window.location.reload();
                 }
             } catch (err) {
-                alert(err.response?.data?.message || "হাজিরা দেওয়া সম্ভব হয়নি।");
+                console.error("🔥 Check-in Error:", err);
+                alert(err.response?.data?.message || "হাজিরা দেওয়া সম্ভব হয়নি। আপনার লোকেশন পারমিশন চেক করুন।");
             } finally {
                 setLoading(false);
             }
-        }, () => {
-            alert("লোকেশন পারমিশন প্রয়োজন।");
+        }, (error) => {
+            console.error("Geolocation Error:", error);
+            alert("লোকেশন পাওয়া যায়নি। অনুগ্রহ করে GPS অন করুন এবং পারমিশন দিন।");
             setLoading(false);
-        }, { enableHighAccuracy: true });
+        }, { enableHighAccuracy: true, timeout: 10000 });
     };
 
     const attendanceData = [
@@ -123,7 +132,7 @@ const Dashboard = () => {
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-10">
 
-            {/* Stats Grid - Horizon UI Style */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {stats.map((item) => (
                     <div key={item.id} className="bg-white p-5 rounded-3xl flex items-center gap-4 shadow-[0px_18px_40px_rgba(112,144,176,0.12)]">
@@ -145,7 +154,7 @@ const Dashboard = () => {
             {/* Main Section */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-                {/* Attendance Chart - Large Card */}
+                {/* Attendance Chart */}
                 <div className="lg:col-span-8 bg-white p-8 rounded-3xl shadow-[0px_18px_40px_rgba(112,144,176,0.12)]">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                         <div>
@@ -153,7 +162,7 @@ const Dashboard = () => {
                             <p className="text-sm text-slate-400 font-medium">Weekly Attendance Overview</p>
                         </div>
                         <div className="flex gap-2 bg-[#F4F7FE] p-1 rounded-xl">
-                            {taskStats.slice(0, 3).map((ts, idx) => (
+                            {Array.isArray(taskStats) && taskStats.slice(0, 3).map((ts, idx) => (
                                 <div key={idx} className="bg-white px-3 py-1.5 rounded-lg shadow-sm">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">{ts.name}</p>
                                     <p className="text-xs font-black text-[#2B3674]">{ts.value}</p>
@@ -198,15 +207,15 @@ const Dashboard = () => {
                             onClick={handleCheckIn}
                             disabled={loading}
                             className={`w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300 ${loading
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0px_10px_20px_rgba(67,24,255,0.2)] active:scale-95'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0px_10px_20px_rgba(67,24,255,0.2)] active:scale-95'
                                 }`}
                         >
                             {loading ? <FaSync className="animate-spin mx-auto text-lg" /> : 'Confirm Presence'}
                         </button>
                     </div>
 
-                    {/* Payroll Summary - Dark Accent */}
+                    {/* Payroll Summary */}
                     <div className="bg-[#11047A] p-7 rounded-3xl shadow-xl flex items-center justify-between overflow-hidden relative group">
                         <div className="relative z-10">
                             <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Est. Payroll</p>
@@ -215,7 +224,6 @@ const Dashboard = () => {
                         <div className="bg-white/10 p-4 rounded-2xl relative z-10 text-white text-2xl">
                             <FaCalendarAlt />
                         </div>
-                        {/* Design Element */}
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-500"></div>
                     </div>
 
